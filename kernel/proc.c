@@ -132,6 +132,17 @@ found:
     return 0;
   }
 
+  // Allocate a page for usyscall
+  if((p->usyscall = (struct usyscall *)kalloc()) == 0) {
+    freeproc(p);
+    release(&p->lock);
+    return 0;
+  }
+  // Set all the value in page to 0, avoid trash value
+  memset(p->usyscall, 0, PGSIZE);
+  // Assign the value pid from proc to the usyscall->pid
+  p->usyscall->pid = p->pid;
+
   // An empty user page table.
   p->pagetable = proc_pagetable(p);
   if(p->pagetable == 0){
@@ -158,6 +169,10 @@ freeproc(struct proc *p)
   if(p->trapframe)
     kfree((void*)p->trapframe);
   p->trapframe = 0;
+
+  if (p->usyscall)
+    kfree((void*)p->usyscall);
+  p->usyscall = 0;
   if(p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
   p->pagetable = 0;
@@ -202,16 +217,29 @@ proc_pagetable(struct proc *p)
     return 0;
   }
 
+  // Mapping the USYSCALL logical address to (p->usyscall) physical address
+  if (mappages(pagetable, USYSCALL, PGSIZE,
+                (uint64)(p->usyscall), PTE_R | PTE_U) < 0){
+    // If mapping error unmap the valid mapping TRAMPOLINE, TRAPFRAME above
+    uvmunmap(pagetable, TRAMPOLINE, 1, 0);
+    uvmunmap(pagetable, TRAPFRAME, 1, 0);
+    // Free all the pagetable that have been initialized
+    uvmfree(pagetable, 0);
+    return 0;
+  }
+
   return pagetable;
 }
 
 // Free a process's page table, and free the
 // physical memory it refers to.
+// This deallocate the full pagetable
 void
 proc_freepagetable(pagetable_t pagetable, uint64 sz)
 {
   uvmunmap(pagetable, TRAMPOLINE, 1, 0);
   uvmunmap(pagetable, TRAPFRAME, 1, 0);
+  uvmunmap(pagetable, USYSCALL, 1, 0);
   uvmfree(pagetable, sz);
 }
 
