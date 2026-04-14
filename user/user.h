@@ -59,3 +59,7 @@ int statistics(void*, int);
 // umalloc.c
 void* malloc(uint);
 void free(void*);
+
+
+// user-defined syscalls
+int pgaccess(char*, const uint, uint*);

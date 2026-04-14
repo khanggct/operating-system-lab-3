@@ -123,3 +123,18 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64 sys_pgaccess(void) {
+  uint64 va;
+  uint len;
+  uint64 abits;
+
+  argaddr(0, &va);
+  argint(1, (int*)&len);
+  argaddr(2, &abits);
+
+  int bitmask = pgaccess(va, len);
+  if (copyout(myproc()->pagetable, abits, (char*)&bitmask, sizeof(bitmask)) < 0)
+    return -1;
+  return 0;
+}

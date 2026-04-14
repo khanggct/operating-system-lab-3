@@ -21,6 +21,7 @@
 #define SYS_mkdir  20
 #define SYS_close  21
 
+
 // System calls for labs
 #define SYS_trace     22
 #define SYS_sysinfo   23
@@ -35,3 +36,6 @@
 #define SYS_recv      32
 #define SYS_pgpte     33
 #define SYS_kpgtbl    34
+
+// user-defined
+#define SYS_pgaccess 37

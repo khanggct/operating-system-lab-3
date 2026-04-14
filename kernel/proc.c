@@ -721,3 +721,19 @@ procdump(void)
     printf("\n");
   }
 }
+
+int pgaccess(uint64 addr, int len) {
+  struct proc* p = myproc();
+  int bitmask = 0;
+  for (int i = 0; i < len; i++) {
+    uint64 va = addr + PGSIZE * i; 
+    pte_t* pte = walk(p->pagetable, va, 0);
+    if (pte) {
+      if ((*pte) & PTE_A) {
+        bitmask |= (1 << i);
+        (*pte) &= ~PTE_A;
+      }
+    }
+  }
+  return bitmask;
+}
