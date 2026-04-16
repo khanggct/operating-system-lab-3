@@ -1,0 +1,2 @@
+1. Other syscalls: getppid, time
+2. Explanation: shared page avoids syscall overhead by mapping read-only data

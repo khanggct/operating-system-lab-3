@@ -101,13 +101,13 @@ walk(pagetable_t pagetable, uint64 va, int alloc)
   for(int level = 2; level > 0; level--) {
     pte_t *pte = &pagetable[PX(level, va)];
     if(*pte & PTE_V) {
-      pagetable = (pagetable_t)PTE2PA(*pte);
-#ifdef LAB_PGTBL
+    #ifdef LAB_PGTBL
       if(PTE_LEAF(*pte)) {
-        return pte;
-      }
+      return pte;   
+    }
 #endif
-    } else {
+  pagetable = (pagetable_t)PTE2PA(*pte);
+} else {
       if(!alloc || (pagetable = (pde_t*)kalloc()) == 0)
         return 0;
       memset(pagetable, 0, PGSIZE);
@@ -170,7 +170,6 @@ mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
 
   if(size == 0)
     panic("mappages: size");
-  
   a = va;
   last = va + size - PGSIZE;
   for(;;){
@@ -337,33 +336,74 @@ uvmfree(pagetable_t pagetable, uint64 sz)
 int
 uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
 {
-  pte_t *pte;
-  uint64 pa, i;
-  uint flags;
-  char *mem;
-  int szinc;
+  uint64 i = 0;
 
-  for(i = 0; i < sz; i += szinc){
-    szinc = PGSIZE;
-    szinc = PGSIZE;
-    if((pte = walk(old, i, 0)) == 0)
-      panic("uvmcopy: pte should exist");
-    if((*pte & PTE_V) == 0)
-      panic("uvmcopy: page not present");
-    pa = PTE2PA(*pte);
-    flags = PTE_FLAGS(*pte);
-    if((mem = kalloc()) == 0)
+  while(i < sz){
+
+    pte_t *pte2 = &old[PX(2, i)];
+    if((*pte2 & PTE_V) == 0)
+      panic("uvmcopy");
+
+    pagetable_t pt1_old = (pagetable_t)PTE2PA(*pte2);
+
+    // đảm bảo level 1 tồn tại bên new
+    pte_t *pte2_new = &new[PX(2, i)];
+    pagetable_t pt1_new;
+
+    if((*pte2_new & PTE_V) == 0){
+      pt1_new = (pagetable_t)kalloc();
+      if(pt1_new == 0)
+        goto err;
+      memset(pt1_new, 0, PGSIZE);
+      *pte2_new = PA2PTE(pt1_new) | PTE_FLAGS(*pte2);
+    } else {
+      pt1_new = (pagetable_t)PTE2PA(*pte2_new);
+    }
+
+    pte_t *pte1_old = &pt1_old[PX(1, i)];
+    pte_t *pte1_new = &pt1_new[PX(1, i)];
+
+
+    if((*pte1_old & PTE_V) && (*pte1_old & (PTE_R|PTE_W|PTE_X))){
+      if(*pte1_new & PTE_V){
+        if((*pte1_new & (PTE_R|PTE_W|PTE_X)) == 0){
+          freewalk((pagetable_t)PTE2PA(*pte1_new));
+        }
+      }
+
+      *pte1_new = *pte1_old;
+
+      i += PGSIZE * 512;
+      continue;
+    }
+
+    pagetable_t pt0_old = (pagetable_t)PTE2PA(*pte1_old);
+    pte_t *pte0_old = &pt0_old[PX(0, i)];
+
+    if((*pte0_old & PTE_V) == 0)
+      panic("uvmcopy");
+
+    uint64 pa = PTE2PA(*pte0_old);
+    uint flags = PTE_FLAGS(*pte0_old);
+
+    char *mem = kalloc();
+    if(mem == 0)
       goto err;
+
     memmove(mem, (char*)pa, PGSIZE);
+
     if(mappages(new, i, PGSIZE, (uint64)mem, flags) != 0){
       kfree(mem);
       goto err;
     }
+
+    i += PGSIZE;
   }
+
   return 0;
 
- err:
-  uvmunmap(new, 0, i / PGSIZE, 1);
+err:
+  uvmunmap(new, 0, i/PGSIZE, 1);
   return -1;
 }
 
@@ -487,10 +527,35 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
 }
 
 
+void vmprint_recursion(pagetable_t pagetable, int level, uint64 va)
+{
+  for(int i = 0; i < 512; i++){
+    pte_t pte = pagetable[i];
+    if(pte & PTE_V){
+      int shift = 12 + (2 - (level - 1)) * 9;
+      uint64 new_va = va | ((uint64)i << shift);
+      printf(" "); 
+      for(int j = 0; j < level; j++){
+        if(j > 0) printf(" ");
+        printf("..");
+      }
+    
+      printf("%p\n", (void*)new_va);
+
+      if((pte & (PTE_R|PTE_W|PTE_X)) == 0){
+        pagetable_t child = (pagetable_t)PTE2PA(pte);
+        vmprint_recursion(child, level + 1, new_va);
+      }
+    }
+  }
+}
+
+
 #ifdef LAB_PGTBL
-void
-vmprint(pagetable_t pagetable) {
-  // your code here
+void vmprint(pagetable_t pagetable)
+{
+  printf("page table %p\n", pagetable);
+  vmprint_recursion(pagetable, 1, 0);
 }
 #endif
 
