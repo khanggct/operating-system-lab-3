@@ -529,20 +529,25 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
 
 void vmprint_recursion(pagetable_t pagetable, int level, uint64 va)
 {
-  for(int i = 0; i < 512; i++){
+  for(int i = 0; i < 512; i++)
+  {
     pte_t pte = pagetable[i];
-    if(pte & PTE_V){
+    if(pte & PTE_V)
+    {
       int shift = 12 + (2 - (level - 1)) * 9;
       uint64 new_va = va | ((uint64)i << shift);
-      printf(" "); 
-      for(int j = 0; j < level; j++){
-        if(j > 0) printf(" ");
+      
+      printf(" ");
+      for(int j = 0; j < level; j++)
+      {
         printf("..");
+        if(j + 1 < level)
+          printf(" ");
       }
-    
-      printf("%p\n", (void*)new_va);
+      printf("%d: pte %p pa %p\n", i, (void *)pte, (void *)PTE2PA(pte));
 
-      if((pte & (PTE_R|PTE_W|PTE_X)) == 0){
+      if((pte & (PTE_R|PTE_W|PTE_X)) == 0)
+      {
         pagetable_t child = (pagetable_t)PTE2PA(pte);
         vmprint_recursion(child, level + 1, new_va);
       }
