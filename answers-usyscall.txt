@@ -1,0 +1,1 @@
+Một số hàm hệ thống có thể tăng tốc trong XV6 là uptime() và getppid(). Vì bản thân các hàm này đơn giản, chỉ trả về số tick mà hệ thống đã chạy hoặc là trả pid của tiến trình cha, và việc trap vào kernel rất tốn thời gian và không cần thiết cho user
