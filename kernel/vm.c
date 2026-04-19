@@ -102,13 +102,12 @@ walk(pagetable_t pagetable, uint64 va, int alloc)
     pte_t *pte = &pagetable[PX(level, va)];
     if(*pte & PTE_V) {
       pagetable = (pagetable_t)PTE2PA(*pte);
-      #ifdef LAB_PGTBL
-        if(PTE_LEAF(*pte)) {
-        return pte;   
+#ifdef LAB_PGTBL
+      if(PTE_LEAF(*pte)) {
+        return pte;
       }
 #endif
-  
-} else {
+    } else {
       if(!alloc || (pagetable = (pde_t*)kalloc()) == 0)
         return 0;
       memset(pagetable, 0, PGSIZE);
@@ -488,40 +487,10 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
 }
 
 
-void vmprint_recursion(pagetable_t pagetable, int level, uint64 va)
-{
-  for(int i = 0; i < 512; i++)
-  {
-    pte_t pte = pagetable[i];
-    if(pte & PTE_V)
-    {
-      int shift = 12 + (2 - (level - 1)) * 9;
-      uint64 new_va = va | ((uint64)i << shift);
-      
-      printf(" ");
-      for(int j = 0; j < level; j++)
-      {
-        printf("..");
-        if(j + 1 < level)
-          printf(" ");
-      }
-      printf("%d: pte %p pa %p\n", i, (void *)pte, (void *)PTE2PA(pte));
-
-      if((pte & (PTE_R|PTE_W|PTE_X)) == 0)
-      {
-        pagetable_t child = (pagetable_t)PTE2PA(pte);
-        vmprint_recursion(child, level + 1, new_va);
-      }
-    }
-  }
-}
-
-
 #ifdef LAB_PGTBL
-void vmprint(pagetable_t pagetable)
-{
-  printf("page table %p\n", pagetable);
-  vmprint_recursion(pagetable, 1, 0);
+void
+vmprint(pagetable_t pagetable) {
+  // your code here
 }
 #endif
 
